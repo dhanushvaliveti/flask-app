@@ -1,7 +1,8 @@
 from flask import Flask,jsonify
-ap=Flask(__name__)
-@ap.route("/status")
-def status():
-	return jsonify({"msg": "i am okay"})
+app=Flask(__name__)
+@app.route("/status")
+def hello():
+	return jsonify({"msg": "hello"})
 if __name__ == "__main__"
-    ap.run(debug=True)
+    app.run(debug=True)
+
