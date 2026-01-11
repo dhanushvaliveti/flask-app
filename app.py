@@ -1,7 +1,18 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-users = []
+
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+
 
 @app.route("/users", methods=["POST"])
 def create_user():
@@ -9,25 +20,28 @@ def create_user():
     if data is None or "name" not in data:
         return jsonify({"error": "Name is required"}), 400
 
-    user = {
-        "id": len(users) + 1,
-        "name": data["name"]
-    }
-    users.append(user)
-    return jsonify(user), 201
+    user = User(name=data["name"])
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"id": user.id, "name": user.name}), 201
 
 
 @app.route("/users", methods=["GET"])
 def get_users():
-    return jsonify(users), 200
+    users = User.query.all()
+    return jsonify(
+        [{"id": user.id, "name": user.name} for user in users]
+    ), 200
 
 
 @app.route("/users/<int:user_id>", methods=["GET"])
 def get_user(user_id):
-    for user in users:
-        if user["id"] == user_id:
-            return jsonify(user), 200
-    return jsonify({"error": "User not found"}), 404
+    user = User.query.get(user_id)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({"id": user.id, "name": user.name}), 200
 
 
 @app.route("/users/<int:user_id>", methods=["PUT"])
@@ -36,27 +50,27 @@ def update_user(user_id):
     if data is None or "name" not in data:
         return jsonify({"error": "Name is required"}), 400
 
-    for user in users:
-        if user["id"] == user_id:
-            user["name"] = data["name"]
-            return jsonify(user), 200
-    return jsonify({"error": "User not found"}), 404
+    user = User.query.get(user_id)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    user.name = data["name"]
+    db.session.commit()
+
+    return jsonify({"id": user.id, "name": user.name}), 200
 
 
 @app.route("/users/<int:user_id>", methods=["DELETE"])
 def delete_user(user_id):
-    for index, user in enumerate(users):
-        if user["id"] == user_id:
-            users.pop(index)
-            return "", 204
-    return jsonify({"error": "User not found"}), 404
+    user = User.query.get(user_id)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return "", 204
 
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
-
-
-
